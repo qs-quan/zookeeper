@@ -1,7 +1,7 @@
 package lock;
 
 import com.wayzim.zookeeper.lock.LockApplication;
-import com.wayzim.zookeeper.lock.dblock.DbLock;
+import com.wayzim.zookeeper.lock.redislock.RedisLock;
 import com.wayzim.zookeeper.lock.stock.Stock;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -13,26 +13,25 @@ import org.springframework.test.context.junit4.SpringRunner;
  * ${DESCRIPTION}
  *
  * @author 14684
- * @create 2020-09-21 18:41
+ * @create 2020-09-22 16:28
  */
 @RunWith(SpringRunner.class)
 @SpringBootTest(classes = LockApplication.class)
-public class DbLockTest {
-
+public class RedisLockTest {
 
     @Autowired
-    private DbLock dblock;
+    private RedisLock redisLock;
 
 
     class StockThread implements Runnable {
         @Override
         public void run() {
             // 上锁
-            dblock.lock();
+            redisLock.lock();
             // 减少库存
             boolean b = new Stock().reduceStock();
             // 解锁
-            dblock.unlock();
+            redisLock.unlock();
 
             if (b) {
                 System.err.println(Thread.currentThread().getName() + "减库存成功。。。。。。");
@@ -52,6 +51,4 @@ public class DbLockTest {
         Thread.sleep(60000);
 
     }
-
-
 }
