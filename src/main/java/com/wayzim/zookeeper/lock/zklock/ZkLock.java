@@ -24,7 +24,7 @@ public class ZkLock implements Lock {
 
     public static final String LOCK_NAME = "ZK_LOCK";
 
-    private String nodeId = "";
+    private ThreadLocal<String> nodeId;
 
 
     @Autowired
@@ -79,7 +79,7 @@ public class ZkLock implements Lock {
             if (myNode.equals(smallestNode)) {
                 //如果是最小节点 表示获得锁
                 System.out.println(Thread.currentThread().getName() + myNode + "获取锁资源");
-                this.nodeId = myNode;
+                this.nodeId.set(myNode);
                 return;
             }
 
@@ -94,7 +94,7 @@ public class ZkLock implements Lock {
                 System.out.println(Thread.currentThread().getName() + myNode + "等待节点： " + preNode + "释放锁资源");
                 //等待，这里一直等待其他线程释放锁
                 latch.await();
-                nodeId = myNode;
+                nodeId.set(myNode);
                 latch = null;
             }
 
@@ -128,9 +128,9 @@ public class ZkLock implements Lock {
         try {
             System.out.println(Thread.currentThread().getName() + "unlock");
 
-            if (!nodeId.equals("")) {
-                zooKeeper.delete(nodeId, -1);
-                nodeId = "";
+            if (nodeId != null) {
+                zooKeeper.delete(nodeId.get(), -1);
+                nodeId = null;
             }
         } catch (InterruptedException e) {
             e.printStackTrace();
