@@ -24,7 +24,7 @@ public class ZkLock implements Lock {
 
     public static final String LOCK_NAME = "ZK_LOCK";
 
-    private ThreadLocal<String> nodeId;
+    private ThreadLocal<String> nodeId = new ThreadLocal<>();
 
 
     @Autowired
@@ -128,9 +128,9 @@ public class ZkLock implements Lock {
         try {
             System.out.println(Thread.currentThread().getName() + "unlock");
 
-            if (nodeId != null) {
+            if (nodeId.get() != null) {
                 zooKeeper.delete(nodeId.get(), -1);
-                nodeId = null;
+                nodeId.remove();
             }
         } catch (InterruptedException e) {
             e.printStackTrace();
