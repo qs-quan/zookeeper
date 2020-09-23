@@ -65,39 +65,14 @@ public class ZkLock implements Lock {
 
             System.out.println(Thread.currentThread().getName() + myNode + "created。。。。。。。。。");
 
-            // 取出所有子节点
-            List<String> children = zooKeeper.getChildren(root, false);
-
-            TreeSet<String> sortNodes = new TreeSet<>();
-
-            for (String child : children) {
-                sortNodes.add(root + "/" + child);
-            }
-
-            String smallestNode = sortNodes.first();
-
-            if (myNode.equals(smallestNode)) {
+            if (isSmallNode(myNode)) {
                 //如果是最小节点 表示获得锁
                 System.out.println(Thread.currentThread().getName() + myNode + "获取锁资源");
                 this.nodeId.set(myNode);
                 return;
             }
-
-            String preNode = sortNodes.lower(myNode);
-
-            CountDownLatch latch = new CountDownLatch(1);
-
-            // 注册监听
-            Stat stat = zooKeeper.exists(preNode, new LockWatcher(latch));
-            // 判断比自己小的节点是否存在，如果不存在则无需等待，同时注册监听
-            if (stat != null) {
-                System.out.println(Thread.currentThread().getName() + myNode + "等待节点： " + preNode + "释放锁资源");
-                //等待，这里一直等待其他线程释放锁
-                latch.await();
-                nodeId.set(myNode);
-                latch = null;
-            }
-
+            // 监听上一个节点
+            watchPreNode(myNode);
 
         } catch (KeeperException e) {
             e.printStackTrace();
@@ -105,6 +80,53 @@ public class ZkLock implements Lock {
             e.printStackTrace();
         }
 
+    }
+
+    private void watchPreNode(String myNode) throws KeeperException, InterruptedException {
+        String preNode = getSortNodes().lower(myNode);
+
+        CountDownLatch latch = new CountDownLatch(1);
+        // 注册监听
+        Stat stat = zooKeeper.exists(preNode, new LockWatcher(latch));
+        // 判断比自己小的节点是否存在，如果不存在则无需等待，同时注册监听
+        if (stat != null) {
+            System.out.println(Thread.currentThread().getName() + myNode + "等待节点： " + preNode + "释放锁资源");
+            //等待，这里一直等待其他线程释放锁
+            latch.await();
+            // 判断当前节点是不是最小的节点 防止为其他原因导致的节点删除
+            if (isSmallNode(myNode)) {
+                System.out.println(Thread.currentThread().getName() + myNode + "获取锁资源");
+                nodeId.set(myNode);
+            } else {
+                watchPreNode(myNode);
+            }
+        }
+    }
+
+
+    private Boolean isSmallNode(String currentNode) {
+        String smallestNode = "";
+        try {
+            TreeSet<String> sortNodes = getSortNodes();
+            smallestNode = sortNodes.first();
+        } catch (KeeperException e) {
+            e.printStackTrace();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        return currentNode.equals(smallestNode);
+    }
+
+    private TreeSet<String> getSortNodes() throws KeeperException, InterruptedException {
+        // 取出所有子节点
+        List<String> children = zooKeeper.getChildren(root, false);
+
+        TreeSet<String> sortNodes = new TreeSet<>();
+
+        for (String child : children) {
+            sortNodes.add(root + "/" + child);
+        }
+        return sortNodes;
     }
 
     @Override
